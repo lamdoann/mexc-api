@@ -1,0 +1,45 @@
+{
+  "name": "mexc-api",
+  "version": "0.1.0",
+  "description": "Node.js & TypeScript connector for the MEXC Spot V3 API — REST exchangeInfo + spot trade websocket streams",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "example:exchange-info": "ts-node examples/exchange-info.ts",
+    "example:trades": "ts-node examples/trade-stream.ts",
+    "example:account": "ts-node examples/account-info.ts",
+    "example:userdata": "ts-node examples/user-data-stream.ts"
+  },
+  "keywords": [
+    "mexc",
+    "mexc-api",
+    "crypto",
+    "exchange",
+    "websocket",
+    "spot",
+    "trading",
+    "typescript"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "protobufjs": "^7.3.0",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "@types/ws": "^8.5.10",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
