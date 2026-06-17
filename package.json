@@ -11,6 +11,8 @@
     "build": "rimraf dist && tsc",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build",
     "example:exchange-info": "ts-node examples/exchange-info.ts",
     "example:trades": "ts-node examples/trade-stream.ts",
     "example:account": "ts-node examples/account-info.ts",

@@ -11,6 +11,20 @@ Scope (by design):
 
 ## Install
 
+Use it as a dependency in another project (the `prepare` script builds `dist`
+automatically on install):
+
+```bash
+# from a local path
+npm install /path/to/mexc-api
+# from git
+npm install github:<you>/mexc-api
+# from npm (after publishing)
+npm install mexc-api
+```
+
+Developing this package itself:
+
 ```bash
 npm install
 npm run build
