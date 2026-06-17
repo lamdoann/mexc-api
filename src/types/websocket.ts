@@ -50,11 +50,16 @@ export type KlineInterval =
 /** MEXC trade side: 1 = buy (taker bought), 2 = sell (taker sold). */
 export type TradeSide = 'buy' | 'sell';
 
-/** A single normalised trade, emitted on the `trade` event. */
+/** Which MEXC market a stream targets. */
+export type MarketType = 'spot' | 'future';
+
+/** A single normalised trade, emitted on the `trade` event (spot or futures). */
 export interface MexcTrade {
-  /** Trading pair, e.g. "BTCUSDT". */
+  /** Which market this trade came from. */
+  market: MarketType;
+  /** Trading pair — "BTCUSDT" for spot, "BTC_USDT" for futures. */
   symbol: string;
-  /** Source channel, e.g. "spot@public.deals.v3.api.pb@BTCUSDT". */
+  /** Source channel, e.g. "spot@public.deals.v3.api.pb@BTCUSDT" or "push.deal". */
   channel: string;
   price: string;
   quantity: string;
@@ -64,8 +69,10 @@ export interface MexcTrade {
   tradeType: number;
   /** Trade timestamp (ms). */
   time: number;
-  /** Server push time (ms), if present. */
+  /** Server push time (ms), if present (spot). */
   sendTime?: number;
+  /** Trade id, if present (futures). */
+  tradeId?: string;
 }
 
 interface DealsBody {

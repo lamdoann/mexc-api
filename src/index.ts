@@ -2,6 +2,10 @@ export { MexcRestClient } from './rest/MexcRestClient';
 export { BaseRestClient, DEFAULT_REST_BASE_URL } from './rest/BaseRestClient';
 export type { RequestParams } from './rest/BaseRestClient';
 export {
+  MexcFuturesRestClient,
+  DEFAULT_FUTURES_REST_BASE_URL,
+} from './rest/MexcFuturesRestClient';
+export {
   MexcWebsocketClient,
   DEFAULT_WS_URL,
   spotTradesChannel,
@@ -11,11 +15,19 @@ export {
   PRIVATE_DEALS_CHANNEL,
   PRIVATE_ACCOUNT_CHANNEL,
 } from './websocket/MexcWebsocketClient';
+export type { SubscribeTradesOptions } from './websocket/MexcWebsocketClient';
 export {
+  MexcFuturesWebsocketClient,
+  DEFAULT_FUTURES_WS_URL,
+  toFuturesSymbol,
+} from './websocket/MexcFuturesWebsocketClient';
+export {
+  MexcTradeStreamPool,
   MexcSpotTradeStream,
   MAX_SUBSCRIPTIONS_PER_CONNECTION,
-} from './websocket/MexcSpotTradeStream';
-export type { TradeStreamPoolOptions } from './websocket/MexcSpotTradeStream';
+  DEFAULT_FUTURES_PER_CONNECTION,
+} from './websocket/MexcTradeStreamPool';
+export type { TradeStreamPoolOptions } from './websocket/MexcTradeStreamPool';
 export { decodePushData } from './websocket/proto';
 export { DefaultLogger, SilentLogger } from './util/logger';
 export type { Logger } from './util/logger';
@@ -28,6 +40,7 @@ export type {
   RateLimit,
 } from './types/spot';
 export type { AccountInformation, AccountBalance } from './types/account';
+export type { FuturesContract, FuturesApiResponse } from './types/futures';
 export type {
   OrderSide,
   OrderType,
@@ -42,6 +55,7 @@ export type {
   WsClientOptions,
   AggreDealsInterval,
   KlineInterval,
+  MarketType,
   TradeSide,
   MexcTrade,
   MexcKline,

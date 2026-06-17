@@ -40,7 +40,16 @@ const client = new MexcRestClient();
 const all = await client.fetchExchangeInfo();                 // every symbol
 const one = await client.fetchExchangeInfo({ symbol: 'BTCUSDT' });
 const some = await client.fetchExchangeInfo({ symbols: ['BTCUSDT', 'ETHUSDT'] });
+
+// Futures (contract) markets — handy for feeding the futures trade pool:
+const contracts = await client.fetchFuturesContracts();       // all 899 contracts
+const enabled = contracts.filter((c) => c.state === 0 && c.quoteCoin === 'USDT');
+// → enabled.map((c) => c.symbol) gives BTC_USDT, ETH_USDT, ...
 ```
+
+`fetchFuturesContracts()` hits the contract API (`https://contract.mexc.com`) and
+returns the unwrapped contract list. For futures-only usage, `MexcFuturesRestClient`
+exposes the same `fetchContracts()` directly.
 
 ## REST — private (signed) endpoints
 
@@ -162,6 +171,36 @@ Multi-symbol subscriptions are batched into a single `SUBSCRIPTION` message and
 chunked at 30 channels (MEXC's per-connection limit). You can also pass raw
 channels directly via `ws.subscribe([...])`.
 
+### Spot & futures trades (`subscribeTrades`)
+
+`subscribeTrades` works for both markets from one client and emits all trades on a
+single `trade` event (each carries `market: 'spot' | 'future'`):
+
+```ts
+const ws = new MexcWebsocketClient();
+ws.on('trade', (t) => console.log(t.market, t.symbol, t.side, t.price, t.quantity));
+
+ws.subscribeTrades(['BTCUSDT', 'ETHUSDT']);                     // spot (default)
+ws.subscribeTrades(['BTCUSDT', 'ETH_USDT'], { market: 'future' }); // futures
+```
+
+- **Spot** uses the protobuf feed (`wss://wbs-api.mexc.com/ws`), aggregated deals.
+- **Futures** uses the JSON feed (`wss://contract.mexc.com/edge`, channel `push.deal`)
+  via a separate connection managed under the hood. Futures symbols use the
+  `BTC_USDT` form — `BTCUSDT` is auto-converted.
+- `subscribeTrades` auto-connects; `unsubscribeTrades(symbols, { market })` to stop.
+- Futures trades include a `tradeId`; spot trades include `sendTime`.
+
+You can also use the futures client directly:
+
+```ts
+import { MexcFuturesWebsocketClient } from 'mexc-api';
+const fut = new MexcFuturesWebsocketClient();
+fut.on('trade', (t) => console.log(t.symbol, t.side, t.price));
+fut.connect();
+fut.subscribeTrades(['BTC_USDT', 'ETH_USDT']);
+```
+
 ### Candlesticks (kline)
 
 ```ts
@@ -190,28 +229,35 @@ ws.terminate();  // force-kill the socket immediately, stops reconnecting
 
 ### Streaming many symbols (connection pool)
 
-MEXC enforces a **hard limit of 30 subscriptions per connection**. To stream more
-than 30 symbols (e.g. every USDT pair — ~1800+), use `MexcSpotTradeStream`, which
-shards symbols across a pool of auto-reconnecting connections and re-emits all
-trades from one place:
+Spot enforces a **hard limit of 30 subscriptions per connection**. To stream more
+symbols (e.g. every USDT pair — ~1800+), use `MexcTradeStreamPool`, which shards
+symbols across a pool of auto-reconnecting connections and re-emits all trades
+from one place. It works for **both markets** via the `market` option:
 
 ```ts
-import { MexcRestClient, MexcSpotTradeStream } from 'mexc-api';
+import { MexcRestClient, MexcTradeStreamPool } from 'mexc-api';
 
 const rest = new MexcRestClient();
 const symbols = (await rest.fetchExchangeInfo()).symbols
   .filter((s) => s.quoteAsset === 'USDT' && s.isSpotTradingAllowed)
   .map((s) => s.symbol);
 
-const stream = new MexcSpotTradeStream({ interval: '100ms' });
-stream.on('trade', (t) => console.log(t.symbol, t.side, t.price, t.quantity));
-stream.on('rejected', (msg) => console.warn('refused:', msg)); // delisted/blocked symbols
-stream.subscribe(symbols); // ~1800 symbols → ~60 connections (30 each)
+// Spot (default)
+const spot = new MexcTradeStreamPool({ interval: '100ms' });
+spot.on('trade', (t) => console.log(t.market, t.symbol, t.side, t.price));
+spot.on('rejected', (msg) => console.warn('refused:', msg)); // delisted/blocked
+spot.subscribe(symbols); // ~1800 symbols → ~60 connections (30 each)
+
+// Futures
+const fut = new MexcTradeStreamPool({ market: 'future' });
+fut.on('trade', (t) => console.log(t.symbol, t.price, t.quantity));
+fut.subscribe(futuresSymbols); // no 30-cap → 100 per connection by default
 ```
 
-Options: `maxPerConnection` (≤30), `interval` (`10ms` / `100ms`), and
-`connectStagger` (ms between opening connections — raise it if you hit connection
-rate limits). Call `stream.close()` to tear everything down.
+Options: `market` (`spot` / `future`), `maxPerConnection` (spot capped at 30;
+futures defaults to 100), `interval` (spot only), and `connectStagger` (ms between
+opening connections — raise it if you hit rate limits). `close()` / `terminate()`
+tear everything down. `MexcSpotTradeStream` remains as a spot-only alias.
 
 **Caveats for large fan-outs:**
 
