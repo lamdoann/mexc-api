@@ -15,7 +15,6 @@ export {
   PRIVATE_DEALS_CHANNEL,
   PRIVATE_ACCOUNT_CHANNEL,
 } from './websocket/MexcWebsocketClient';
-export type { SubscribeTradesOptions } from './websocket/MexcWebsocketClient';
 export {
   MexcFuturesWebsocketClient,
   DEFAULT_FUTURES_WS_URL,
@@ -50,6 +49,14 @@ export type {
   ModifyOrderRequest,
   ModifyOrderTpSlRequest,
   ModifyPlanOrderTpSlRequest,
+  FuturesAccountAsset,
+  FuturesPosition,
+  MarginAdjustType,
+  ChangeMarginRequest,
+  ChangeLeverageRequest,
+  TransferRecordQuery,
+  PositionHistoryQuery,
+  FundingRecordsQuery,
 } from './types/futures';
 export type {
   OrderSide,

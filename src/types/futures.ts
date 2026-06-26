@@ -91,3 +91,85 @@ export interface ModifyPlanOrderTpSlRequest {
   lossTrend?: number;
   profitTrend?: number;
 }
+
+// --- Account & positions ---
+
+/** A futures wallet asset (account/assets). */
+export interface FuturesAccountAsset {
+  currency: string;
+  positionMargin: number;
+  availableBalance: number;
+  cashBalance: number;
+  frozenBalance: number;
+  equity: number;
+  unrealized: number;
+  bonus: number;
+  availableCash?: number;
+  availableOpen?: number;
+  [key: string]: unknown;
+}
+
+/** A futures position (position/open_positions). */
+export interface FuturesPosition {
+  positionId: number;
+  symbol: string;
+  holdVol: number;
+  /** 1 long, 2 short. */
+  positionType: number;
+  /** 1 isolated, 2 cross. */
+  openType: number;
+  /** 1 holding, 2 system-held, 3 closed. */
+  state: number;
+  leverage: number;
+  holdAvgPrice: number;
+  liquidatePrice: number;
+  unrealized?: number;
+  realised?: number;
+  [key: string]: unknown;
+}
+
+export type MarginAdjustType = 'ADD' | 'SUB';
+
+/** Add/reduce margin on a position (position/change_margin). */
+export interface ChangeMarginRequest {
+  positionId: number | string;
+  amount: number;
+  type: MarginAdjustType;
+}
+
+/** Change leverage (position/change_leverage). */
+export interface ChangeLeverageRequest {
+  /** Existing position id (when adjusting a live position). */
+  positionId?: number | string;
+  leverage: number;
+  /** 1 isolated, 2 cross — required when no positionId. */
+  openType?: FuturesOpenType;
+  /** Required when no positionId. */
+  symbol?: string;
+  /** 1 long, 2 short — required when no positionId. */
+  positionType?: number;
+}
+
+export interface TransferRecordQuery {
+  currency?: string;
+  state?: 'WAIT' | 'SUCCESS' | 'FAILED';
+  type?: 'IN' | 'OUT';
+  page_num?: number;
+  page_size?: number;
+}
+
+export interface PositionHistoryQuery {
+  symbol?: string;
+  type?: number;
+  page_num?: number;
+  page_size?: number;
+  start_time?: number;
+  end_time?: number;
+}
+
+export interface FundingRecordsQuery {
+  symbol?: string;
+  position_id?: number;
+  page_num?: number;
+  page_size?: number;
+}

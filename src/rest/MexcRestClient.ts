@@ -1,9 +1,7 @@
 import { BaseRestClient, RequestParams } from './BaseRestClient';
-import { MexcFuturesRestClient } from './MexcFuturesRestClient';
 import type { ExchangeInfoRequest } from '../types/request';
 import type { ExchangeInfo } from '../types/spot';
 import type { AccountInformation } from '../types/account';
-import type { FuturesContract } from '../types/futures';
 import type {
   CancelOrderRequest,
   ListenKeyResponse,
@@ -27,19 +25,6 @@ import type {
  * const account = await client.getAccountInformation();
  */
 export class MexcRestClient extends BaseRestClient {
-  private futuresRest?: MexcFuturesRestClient;
-
-  /**
-   * All futures contracts (or a single one) from the MEXC contract API.
-   * Convenience wrapper around {@link MexcFuturesRestClient.fetchContracts}.
-   */
-  fetchFuturesContracts(symbol?: string): Promise<FuturesContract[]> {
-    if (!this.futuresRest) {
-      this.futuresRest = new MexcFuturesRestClient();
-    }
-    return this.futuresRest.fetchContracts(symbol);
-  }
-
   /**
    * Current exchange trading rules and symbol information.
    * GET /api/v3/exchangeInfo

@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 import { decodePushData } from './proto';
-import { MexcFuturesWebsocketClient } from './MexcFuturesWebsocketClient';
 import { MexcRestClient } from '../rest/MexcRestClient';
 import { DefaultLogger, Logger } from '../util/logger';
 import { backoffDelay } from '../util/backoff';
@@ -9,7 +8,6 @@ import type {
   AggreDealsInterval,
   DecodedPushData,
   KlineInterval,
-  MarketType,
   MexcBalanceUpdate,
   MexcExecutionUpdate,
   MexcKline,
@@ -18,13 +16,6 @@ import type {
   WsClientOptions,
   WsControlMessage,
 } from '../types/websocket';
-
-export interface SubscribeTradesOptions {
-  /** Which market to subscribe on. Defaults to 'spot'. */
-  market?: MarketType;
-  /** Spot only: aggregation window (10ms or 100ms). Defaults to '100ms'. */
-  interval?: AggreDealsInterval;
-}
 
 export const DEFAULT_WS_URL = 'wss://wbs-api.mexc.com/ws';
 
@@ -119,9 +110,6 @@ export class MexcWebsocketClient extends EventEmitter {
   /** True when this client created the listenKey and is responsible for its lifecycle. */
   private managedListenKey = false;
 
-  /** Lazily created futures connection (only when futures trades are subscribed). */
-  private futuresClient: MexcFuturesWebsocketClient | null = null;
-  private readonly options: WsClientOptions;
 
   private ws: WebSocket | null = null;
   private pingTimer: NodeJS.Timeout | null = null;
@@ -146,7 +134,6 @@ export class MexcWebsocketClient extends EventEmitter {
     this.apiSecret = options.apiSecret;
     this.restClient = options.restClient;
     this.keepAliveInterval = options.listenKeyKeepAliveInterval ?? 30 * 60 * 1000;
-    this.options = options;
   }
 
   /**
@@ -300,58 +287,18 @@ export class MexcWebsocketClient extends EventEmitter {
   }
 
   /**
-   * Subscribe to trade streams for one or more symbols on either market.
-   *
-   * @example
-   * ws.subscribeTrades(['BTCUSDT'], { market: 'spot' });
-   * ws.subscribeTrades(['BTC_USDT'], { market: 'future' });
+   * Subscribe to spot trade streams for one or more symbols. Auto-connects, so
+   * the caller needn't call {@link connect} first. For futures trades use
+   * {@link MexcFuturesWebsocketClient} directly.
    */
-  subscribeTrades(symbols: string | string[], options: SubscribeTradesOptions = {}): void {
-    if (options.market === 'future') {
-      this.getFuturesClient().subscribeTrades(symbols);
-      return;
-    }
-    // Ensure the spot socket is opening so the caller needn't call connect() first.
+  subscribeTrades(symbols: string | string[], interval: AggreDealsInterval = '100ms'): void {
     this.connect();
-    this.subscribeSpotTrades(symbols, options.interval ?? '100ms');
+    this.subscribeSpotTrades(symbols, interval);
   }
 
-  /** Unsubscribe from trade streams on either market. */
-  unsubscribeTrades(symbols: string | string[], options: SubscribeTradesOptions = {}): void {
-    if (options.market === 'future') {
-      this.futuresClient?.unsubscribeTrades(symbols);
-      return;
-    }
-    this.unsubscribeTradeStreams(symbols, options.interval ?? '100ms');
-  }
-
-  /**
-   * The underlying futures (contract) connection — use it for futures kline and
-   * private order streams (`ws.futures().subscribeCandlesticks(...)`,
-   * `ws.futures().on('order', ...)`). Created lazily and shared with the futures
-   * trades routed via {@link subscribeTrades}.
-   */
-  futures(): MexcFuturesWebsocketClient {
-    return this.getFuturesClient();
-  }
-
-  private getFuturesClient(): MexcFuturesWebsocketClient {
-    if (!this.futuresClient) {
-      const client = new MexcFuturesWebsocketClient({
-        pingInterval: this.options.pingInterval,
-        reconnectDelay: this.options.reconnectDelay,
-        logger: this.logger,
-        apiKey: this.apiKey,
-        apiSecret: this.apiSecret,
-      });
-      // Bubble futures trades up so consumers listen in one place. Kline/order
-      // streams have different shapes — attach to ws.futures() directly for those.
-      client.on('trade', (t) => this.emit('trade', t));
-      client.on('error', (e) => this.emit('error', e));
-      this.futuresClient = client;
-      client.connect();
-    }
-    return this.futuresClient;
+  /** Unsubscribe from spot trade streams. */
+  unsubscribeTrades(symbols: string | string[], interval: AggreDealsInterval = '100ms'): void {
+    this.unsubscribeTradeStreams(symbols, interval);
   }
 
   /**
@@ -530,11 +477,9 @@ export class MexcWebsocketClient extends EventEmitter {
     }
   }
 
-  /** Gracefully close the connection (incl. any futures connection) and stop reconnecting. */
+  /** Gracefully close the connection and stop reconnecting. */
   close(): void {
     this.shutdown();
-    this.futuresClient?.close();
-    this.futuresClient = null;
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -547,8 +492,6 @@ export class MexcWebsocketClient extends EventEmitter {
    */
   terminate(): void {
     this.shutdown();
-    this.futuresClient?.terminate();
-    this.futuresClient = null;
     if (this.ws) {
       this.ws.terminate();
       this.ws = null;

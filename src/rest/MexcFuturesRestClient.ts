@@ -3,12 +3,19 @@ import { Method } from 'axios';
 import { BaseRestClient, RequestParams } from './BaseRestClient';
 import type { RestClientOptions } from '../types/request';
 import type {
+  ChangeLeverageRequest,
+  ChangeMarginRequest,
+  FundingRecordsQuery,
+  FuturesAccountAsset,
+  FuturesApiResponse,
+  FuturesContract,
+  FuturesPosition,
   ModifyOrderRequest,
   ModifyOrderTpSlRequest,
   ModifyPlanOrderTpSlRequest,
-  FuturesApiResponse,
-  FuturesContract,
   NewFuturesOrderRequest,
+  PositionHistoryQuery,
+  TransferRecordQuery,
 } from '../types/futures';
 
 export const DEFAULT_FUTURES_REST_BASE_URL = 'https://contract.mexc.com';
@@ -54,6 +61,76 @@ export class MexcFuturesRestClient extends BaseRestClient {
       throw new Error(`MEXC futures API error ${res.code}`);
     }
     return res.data;
+  }
+
+  // --- Account & positions (signed) ---
+
+  /** All wallet assets. GET /api/v1/private/account/assets. */
+  getAccountAssets(): Promise<FuturesAccountAsset[]> {
+    return this.signedGet<FuturesAccountAsset[]>('/api/v1/private/account/assets');
+  }
+
+  /** A single currency's asset info. GET /api/v1/private/account/asset/{currency}. */
+  getAccountAsset(currency: string): Promise<FuturesAccountAsset> {
+    return this.signedGet<FuturesAccountAsset>(
+      `/api/v1/private/account/asset/${currency.toUpperCase()}`,
+    );
+  }
+
+  /** Asset transfer records (paginated). GET /api/v1/private/account/transfer_record. */
+  getTransferRecords<T = unknown>(query: TransferRecordQuery): Promise<T> {
+    return this.signedGet<T>('/api/v1/private/account/transfer_record', { ...query } as RequestParams);
+  }
+
+  /** Risk limits, optionally for one symbol. GET /api/v1/private/account/risk_limit. */
+  getRiskLimits<T = unknown>(symbol?: string): Promise<T> {
+    return this.signedGet<T>('/api/v1/private/account/risk_limit', symbol ? { symbol } : undefined);
+  }
+
+  /** Open positions, optionally filtered. GET /api/v1/private/position/open_positions. */
+  getOpenPositions(params: { symbol?: string; positionId?: number } = {}): Promise<FuturesPosition[]> {
+    return this.signedGet<FuturesPosition[]>(
+      '/api/v1/private/position/open_positions',
+      { ...params } as RequestParams,
+    );
+  }
+
+  /** Historical (closed) positions (paginated). GET /api/v1/private/position/list/history_positions. */
+  getHistoricalPositions<T = unknown>(query: PositionHistoryQuery): Promise<T> {
+    return this.signedGet<T>(
+      '/api/v1/private/position/list/history_positions',
+      { ...query } as RequestParams,
+    );
+  }
+
+  /** Funding fee records (paginated). GET /api/v1/private/position/funding_records. */
+  getFundingRecords<T = unknown>(query: FundingRecordsQuery = {}): Promise<T> {
+    return this.signedGet<T>('/api/v1/private/position/funding_records', { ...query } as RequestParams);
+  }
+
+  /** Leverage settings for a contract. GET /api/v1/private/position/leverage. */
+  getLeverage<T = unknown>(symbol: string): Promise<T> {
+    return this.signedGet<T>('/api/v1/private/position/leverage', { symbol });
+  }
+
+  /** Position mode: 1 hedge, 2 one-way. GET /api/v1/private/position/position_mode. */
+  getPositionMode(): Promise<number> {
+    return this.signedGet<number>('/api/v1/private/position/position_mode');
+  }
+
+  /** Add/reduce margin on a position. POST /api/v1/private/position/change_margin. */
+  changeMargin<T = unknown>(params: ChangeMarginRequest): Promise<T> {
+    return this.signedPost<T>('/api/v1/private/position/change_margin', params);
+  }
+
+  /** Change leverage. POST /api/v1/private/position/change_leverage. */
+  changeLeverage<T = unknown>(params: ChangeLeverageRequest): Promise<T> {
+    return this.signedPost<T>('/api/v1/private/position/change_leverage', params);
+  }
+
+  /** Switch position mode (1 hedge, 2 one-way). POST /api/v1/private/position/change_position_mode. */
+  changePositionMode<T = unknown>(positionMode: 1 | 2): Promise<T> {
+    return this.signedPost<T>('/api/v1/private/position/change_position_mode', { positionMode });
   }
 
   // --- Trading (signed) — see the maintenance note in the class docs ---

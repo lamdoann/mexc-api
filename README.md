@@ -40,16 +40,39 @@ const client = new MexcRestClient();
 const all = await client.fetchExchangeInfo();                 // every symbol
 const one = await client.fetchExchangeInfo({ symbol: 'BTCUSDT' });
 const some = await client.fetchExchangeInfo({ symbols: ['BTCUSDT', 'ETHUSDT'] });
+```
 
-// Futures (contract) markets — handy for feeding the futures trade pool:
-const contracts = await client.fetchFuturesContracts();       // all 899 contracts
+Futures (contract) markets live on the futures client (`https://contract.mexc.com`),
+handy for feeding the futures trade pool:
+
+```ts
+import { MexcFuturesRestClient } from 'mexc-api';
+
+const futuresRest = new MexcFuturesRestClient();
+const contracts = await futuresRest.fetchContracts();         // all contracts
 const enabled = contracts.filter((c) => c.state === 0 && c.quoteCoin === 'USDT');
 // → enabled.map((c) => c.symbol) gives BTC_USDT, ETH_USDT, ...
 ```
 
-`fetchFuturesContracts()` hits the contract API (`https://contract.mexc.com`) and
-returns the unwrapped contract list. For futures-only usage, `MexcFuturesRestClient`
-exposes the same `fetchContracts()` directly.
+### Futures account & positions
+
+```ts
+const fut = new MexcFuturesRestClient({ apiKey, apiSecret });
+
+await fut.getAccountAssets();                 // all wallet assets
+await fut.getAccountAsset('USDT');            // one currency
+await fut.getOpenPositions({ symbol: 'BTC_USDT' });
+await fut.getHistoricalPositions({ page_num: 1, page_size: 20 });
+await fut.getFundingRecords({ symbol: 'BTC_USDT' });
+await fut.getTransferRecords({ page_num: 1, page_size: 20 });
+await fut.getRiskLimits('BTC_USDT');
+await fut.getLeverage('BTC_USDT');
+await fut.getPositionMode();                  // 1 hedge, 2 one-way
+
+await fut.changeMargin({ positionId: 123, amount: 5, type: 'ADD' });   // or 'SUB'
+await fut.changeLeverage({ positionId: 123, leverage: 20 });
+await fut.changePositionMode(2);              // 1 hedge, 2 one-way
+```
 
 ### Futures (perpetual) trading
 
@@ -207,28 +230,23 @@ Multi-symbol subscriptions are batched into a single `SUBSCRIPTION` message and
 chunked at 30 channels (MEXC's per-connection limit). You can also pass raw
 channels directly via `ws.subscribe([...])`.
 
-### Spot & futures trades (`subscribeTrades`)
+### Spot trades (`MexcWebsocketClient`)
 
-`subscribeTrades` works for both markets from one client and emits all trades on a
-single `trade` event (each carries `market: 'spot' | 'future'`):
+The spot client streams spot trades over the protobuf feed
+(`wss://wbs-api.mexc.com/ws`). It auto-connects on subscribe:
 
 ```ts
 const ws = new MexcWebsocketClient();
 ws.on('trade', (t) => console.log(t.market, t.symbol, t.side, t.price, t.quantity));
-
-ws.subscribeTrades(['BTCUSDT', 'ETHUSDT']);                     // spot (default)
-ws.subscribeTrades(['BTCUSDT', 'ETH_USDT'], { market: 'future' }); // futures
+ws.subscribeTrades(['BTCUSDT', 'ETHUSDT']);       // optional 2nd arg: '10ms' | '100ms'
+ws.unsubscribeTrades(['ETHUSDT']);
 ```
 
-- **Spot** uses the protobuf feed (`wss://wbs-api.mexc.com/ws`), aggregated deals.
-- **Futures** uses the JSON feed (`wss://contract.mexc.com/edge`, channel `push.deal`)
-  via a separate connection managed under the hood. Futures symbols use the
-  `BTC_USDT` form — `BTCUSDT` is auto-converted.
-- `subscribeTrades` auto-connects; `unsubscribeTrades(symbols, { market })` to stop.
-- Futures trades include a `tradeId`; spot trades include `sendTime`.
+### Futures trades, candlesticks & orders (`MexcFuturesWebsocketClient`)
 
-You can also use the futures client directly — it also streams **candlesticks**
-and **private order updates**:
+Futures lives on its own client (JSON feed `wss://contract.mexc.com/edge`).
+Symbols use the `BTC_USDT` form — `BTCUSDT` is auto-converted. Trades include a
+`tradeId`; spot trades include `sendTime`.
 
 ```ts
 import { MexcFuturesWebsocketClient } from 'mexc-api';
@@ -244,19 +262,9 @@ fut.subscribeCandlesticks(['BTC_USDT'], 'Min1');   // intervals: Min1 … Month1
 fut.subscribeOrders();                              // logs in, then auto-pushes push.personal.order
 ```
 
-From the unified client, reach the same futures connection via `ws.futures()`
-(it inherits the unified client's `apiKey`/`apiSecret`):
-
-```ts
-const ws = new MexcWebsocketClient({ apiKey, apiSecret });
-ws.futures().on('kline', (k) => console.log(k.symbol, k.close));
-ws.futures().on('order', (o) => console.log(o.symbol, o.state));
-ws.futures().subscribeCandlesticks(['BTC_USDT'], 'Min1');
-ws.futures().subscribeOrders();
-```
-
 Futures private order updates need a WS **login** (handled for you with your
-`apiKey`/`apiSecret`); after `rs.login` success MEXC auto-pushes orders.
+`apiKey`/`apiSecret`); after `rs.login` success MEXC auto-pushes orders. To stream
+both markets through one aggregated emitter, use `MexcTradeStreamPool` (below).
 
 ### Candlesticks (kline)
 
