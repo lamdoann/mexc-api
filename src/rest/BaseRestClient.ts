@@ -68,6 +68,31 @@ export class BaseRestClient {
     }
   }
 
+  /**
+   * Low-level request with caller-supplied headers/body. Used by market-specific
+   * signing (e.g. the contract API, whose auth scheme differs from spot).
+   */
+  protected async request<T>(config: {
+    method: Method;
+    url: string;
+    params?: RequestParams;
+    data?: unknown;
+    headers?: Record<string, string>;
+  }): Promise<T> {
+    try {
+      const response = await this.axiosInstance.request<T>({
+        method: config.method,
+        url: config.url,
+        params: clean(config.params),
+        data: config.data,
+        headers: config.headers,
+      });
+      return response.data;
+    } catch (e) {
+      throw this.normaliseError(e);
+    }
+  }
+
   // --- Generic escape hatches for endpoints without a dedicated method ---
 
   /** Call any public (unsigned) GET endpoint. */

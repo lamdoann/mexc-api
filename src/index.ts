@@ -40,7 +40,16 @@ export type {
   RateLimit,
 } from './types/spot';
 export type { AccountInformation, AccountBalance } from './types/account';
-export type { FuturesContract, FuturesApiResponse } from './types/futures';
+export type {
+  FuturesContract,
+  FuturesApiResponse,
+  FuturesOrderSide,
+  FuturesOrderType,
+  FuturesOpenType,
+  NewFuturesOrderRequest,
+  ChangeOrderPriceRequest,
+  ChangeTriggerPriceRequest,
+} from './types/futures';
 export type {
   OrderSide,
   OrderType,

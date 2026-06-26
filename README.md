@@ -51,6 +51,40 @@ const enabled = contracts.filter((c) => c.state === 0 && c.quoteCoin === 'USDT')
 returns the unwrapped contract list. For futures-only usage, `MexcFuturesRestClient`
 exposes the same `fetchContracts()` directly.
 
+### Futures (perpetual) trading
+
+`MexcFuturesRestClient` signs contract requests with the contract scheme
+(`ApiKey` / `Request-Time` / `Signature` headers; sign `accessKey + reqTime +
+paramStr`).
+
+```ts
+const fut = new MexcFuturesRestClient({ apiKey, apiSecret });
+
+// Place: side 1 open long / 2 close short / 3 open short / 4 close long;
+// type 1 limit … 5 market; openType 1 isolated / 2 cross.
+await fut.placeOrder({ symbol: 'BTC_USDT', price: 60000, vol: 1, side: 1, type: 1, openType: 1, leverage: 20 });
+await fut.placeBatchOrders([ /* up to 50 */ ]);
+
+// Modify (SL/TP of an order, or a trigger order's price — MEXC has no plain
+// limit-price amend; cancel & re-place to change a limit price):
+await fut.changeOrderPrice({ orderId: 123, stopLossPrice: 58000, takeProfitPrice: 65000 });
+await fut.changeTriggerPrice({ stopPlanOrderId: 456, stopLossPrice: 58000 });
+
+// Cancel:
+await fut.cancelOrders([123, 456]);          // by id (max 50)
+await fut.cancelOrderByExternalId('BTC_USDT', 'my-oid');
+await fut.cancelAllOrders('BTC_USDT');        // or omit symbol for all
+
+// Any other signed contract endpoint:
+await fut.privateGet('/api/v1/private/order/list/open_orders/BTC_USDT');
+```
+
+> ⚠️ **MEXC has temporarily closed the futures place/cancel order endpoints for
+> normal API accounts since 2022-07** — only whitelisted market makers can use
+> them; others get a maintenance error. Query endpoints still work. These methods
+> follow the official spec, but live order placement depends on your account's
+> access.
+
 ## REST — private (signed) endpoints
 
 Private endpoints need an API key + secret. The client adds `timestamp` +
