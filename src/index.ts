@@ -69,6 +69,8 @@ export type {
   TradeSide,
   MexcTrade,
   MexcKline,
+  MexcFuturesKline,
+  MexcFuturesOrder,
   SpotKlineBody,
   DecodedPushData,
   WsControlMessage,

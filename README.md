@@ -227,15 +227,36 @@ ws.subscribeTrades(['BTCUSDT', 'ETH_USDT'], { market: 'future' }); // futures
 - `subscribeTrades` auto-connects; `unsubscribeTrades(symbols, { market })` to stop.
 - Futures trades include a `tradeId`; spot trades include `sendTime`.
 
-You can also use the futures client directly:
+You can also use the futures client directly — it also streams **candlesticks**
+and **private order updates**:
 
 ```ts
 import { MexcFuturesWebsocketClient } from 'mexc-api';
-const fut = new MexcFuturesWebsocketClient();
+
+const fut = new MexcFuturesWebsocketClient({ apiKey, apiSecret }); // keys only needed for orders
 fut.on('trade', (t) => console.log(t.symbol, t.side, t.price));
+fut.on('kline', (k) => console.log(k.symbol, k.interval, k.open, k.close, k.volume));
+fut.on('order', (o) => console.log('order', o.symbol, 'state', o.state, o.price, o.vol));
+
 fut.connect();
 fut.subscribeTrades(['BTC_USDT', 'ETH_USDT']);
+fut.subscribeCandlesticks(['BTC_USDT'], 'Min1');   // intervals: Min1 … Month1
+fut.subscribeOrders();                              // logs in, then auto-pushes push.personal.order
 ```
+
+From the unified client, reach the same futures connection via `ws.futures()`
+(it inherits the unified client's `apiKey`/`apiSecret`):
+
+```ts
+const ws = new MexcWebsocketClient({ apiKey, apiSecret });
+ws.futures().on('kline', (k) => console.log(k.symbol, k.close));
+ws.futures().on('order', (o) => console.log(o.symbol, o.state));
+ws.futures().subscribeCandlesticks(['BTC_USDT'], 'Min1');
+ws.futures().subscribeOrders();
+```
+
+Futures private order updates need a WS **login** (handled for you with your
+`apiKey`/`apiSecret`); after `rs.login` success MEXC auto-pushes orders.
 
 ### Candlesticks (kline)
 
@@ -310,8 +331,9 @@ tear everything down. `MexcSpotTradeStream` remains as a spot-only alias.
 | -------------- | ---------------------- | -------------------------------------------- |
 | `open`         | —                      | Socket connected                             |
 | `close`        | `(code, reason)`       | Socket closed                                |
-| `reconnecting` | —                      | A reconnect attempt is scheduled             |
-| `reconnected`  | —                      | Reconnect attempt fired                      |
+| `reconnecting` | `attempt` (number)     | A reconnect attempt is scheduled             |
+| `reconnected`  | —                      | Reconnection succeeded (socket re-opened)    |
+| `reconnectFailed` | `attempts` (number) | Gave up after `maxReconnectAttempts`         |
 | `error`        | `Error`                | Socket or decode error                       |
 | `response`     | `WsControlMessage`     | JSON control frame (sub ack / `PONG`)        |
 | `message`      | `DecodedPushData`      | Raw decoded protobuf push                    |
@@ -321,6 +343,22 @@ tear everything down. `MexcSpotTradeStream` remains as a spot-only alias.
 | `balance`      | `MexcBalanceUpdate`    | Private balance update (needs listenKey)     |
 
 `MexcTrade.side` is `'buy'` / `'sell'` (raw `tradeType` 1 / 2 also included).
+
+### Reconnection
+
+Both websocket clients reconnect automatically with **exponential backoff + jitter**
+and re-subscribe (and re-login for private streams). Tune via options:
+
+```ts
+new MexcWebsocketClient({
+  reconnectDelay: 2000,        // base delay (ms); doubles each attempt
+  maxReconnectDelay: 30000,    // backoff cap (ms)
+  maxReconnectAttempts: 10,    // give up after N (default: Infinity)
+});
+```
+
+When the cap is hit the client emits `reconnectFailed` and stops; calling
+`connect()` again resets the counter.
 
 ## Run the examples
 

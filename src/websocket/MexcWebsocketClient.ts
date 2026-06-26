@@ -4,6 +4,7 @@ import { decodePushData } from './proto';
 import { MexcFuturesWebsocketClient } from './MexcFuturesWebsocketClient';
 import { MexcRestClient } from '../rest/MexcRestClient';
 import { DefaultLogger, Logger } from '../util/logger';
+import { backoffDelay } from '../util/backoff';
 import type {
   AggreDealsInterval,
   DecodedPushData,
@@ -64,8 +65,10 @@ export const PRIVATE_ACCOUNT_CHANNEL = 'spot@private.account.v3.api.pb';
 export declare interface MexcWebsocketClient {
   on(event: 'open', listener: () => void): this;
   on(event: 'close', listener: (code: number, reason: string) => void): this;
-  on(event: 'reconnecting', listener: () => void): this;
+  on(event: 'reconnecting', listener: (attempt: number) => void): this;
   on(event: 'reconnected', listener: () => void): this;
+  /** All reconnect attempts exhausted; the client gave up. */
+  on(event: 'reconnectFailed', listener: (attempts: number) => void): this;
   on(event: 'error', listener: (err: Error) => void): this;
   /** Raw JSON control frames (subscription acks, PONG). */
   on(event: 'response', listener: (msg: WsControlMessage) => void): this;
@@ -102,6 +105,9 @@ export class MexcWebsocketClient extends EventEmitter {
   private readonly pingInterval: number;
   private readonly pongTimeout: number;
   private readonly reconnectDelay: number;
+  private readonly maxReconnectDelay: number;
+  private readonly maxReconnectAttempts: number;
+  private reconnectAttempts = 0;
   private readonly logger: Logger;
   private listenKey?: string;
 
@@ -132,6 +138,8 @@ export class MexcWebsocketClient extends EventEmitter {
     this.pingInterval = options.pingInterval ?? 20000;
     this.pongTimeout = options.pongTimeout ?? 10000;
     this.reconnectDelay = options.reconnectDelay ?? 2000;
+    this.maxReconnectDelay = options.maxReconnectDelay ?? 30000;
+    this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
     this.logger = options.logger ?? DefaultLogger;
     this.listenKey = options.listenKey;
     this.apiKey = options.apiKey;
@@ -150,6 +158,7 @@ export class MexcWebsocketClient extends EventEmitter {
       this.listenKey = listenKey;
     }
     this.wantConnected = true;
+    this.reconnectAttempts = 0;
     this.openSocket();
   }
 
@@ -173,12 +182,17 @@ export class MexcWebsocketClient extends EventEmitter {
 
     ws.on('open', () => {
       this.logger.info('[mexc-ws] connected');
+      const wasReconnect = this.reconnectAttempts > 0;
+      this.reconnectAttempts = 0;
       this.startPing();
       // (Re)subscribe to everything we want.
       if (this.subscriptions.size > 0) {
         this.sendSubscription([...this.subscriptions]);
       }
       this.emit('open');
+      if (wasReconnect) {
+        this.emit('reconnected');
+      }
     });
 
     ws.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
@@ -311,14 +325,27 @@ export class MexcWebsocketClient extends EventEmitter {
     this.unsubscribeTradeStreams(symbols, options.interval ?? '100ms');
   }
 
+  /**
+   * The underlying futures (contract) connection — use it for futures kline and
+   * private order streams (`ws.futures().subscribeCandlesticks(...)`,
+   * `ws.futures().on('order', ...)`). Created lazily and shared with the futures
+   * trades routed via {@link subscribeTrades}.
+   */
+  futures(): MexcFuturesWebsocketClient {
+    return this.getFuturesClient();
+  }
+
   private getFuturesClient(): MexcFuturesWebsocketClient {
     if (!this.futuresClient) {
       const client = new MexcFuturesWebsocketClient({
         pingInterval: this.options.pingInterval,
         reconnectDelay: this.options.reconnectDelay,
         logger: this.logger,
+        apiKey: this.apiKey,
+        apiSecret: this.apiSecret,
       });
-      // Bubble futures events up so consumers listen in one place.
+      // Bubble futures trades up so consumers listen in one place. Kline/order
+      // streams have different shapes — attach to ws.futures() directly for those.
       client.on('trade', (t) => this.emit('trade', t));
       client.on('error', (e) => this.emit('error', e));
       this.futuresClient = client;
@@ -605,12 +632,19 @@ export class MexcWebsocketClient extends EventEmitter {
     if (this.reconnectTimer) {
       return;
     }
-    this.emit('reconnecting');
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.logger.error(`[mexc-ws] gave up after ${this.reconnectAttempts} reconnect attempts`);
+      this.wantConnected = false;
+      this.emit('reconnectFailed', this.reconnectAttempts);
+      return;
+    }
+    this.reconnectAttempts += 1;
+    const delay = backoffDelay(this.reconnectAttempts, this.reconnectDelay, this.maxReconnectDelay);
+    this.emit('reconnecting', this.reconnectAttempts);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.openSocket();
-      this.emit('reconnected');
-    }, this.reconnectDelay);
+    }, delay);
   }
 }
 

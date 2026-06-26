@@ -25,8 +25,12 @@ export interface WsClientOptions {
   pingInterval?: number;
   /** How long (ms) to wait for a PONG before treating the socket as dead. Defaults to 10000. */
   pongTimeout?: number;
-  /** Delay (ms) before attempting to reconnect after a drop. Defaults to 2000. */
+  /** Base delay (ms) before reconnecting; grows exponentially per attempt. Defaults to 2000. */
   reconnectDelay?: number;
+  /** Cap (ms) on the exponential backoff delay. Defaults to 30000. */
+  maxReconnectDelay?: number;
+  /** Max consecutive reconnect attempts before giving up. Defaults to Infinity. */
+  maxReconnectAttempts?: number;
   /** Custom logger. Defaults to console-based DefaultLogger. */
   logger?: Logger;
 }
@@ -135,6 +139,46 @@ export interface MexcKline extends SpotKlineBody {
   symbol: string;
   channel: string;
   sendTime?: number;
+}
+
+/** A normalised futures candlestick (push.kline), emitted on `kline`. */
+export interface MexcFuturesKline {
+  market: 'future';
+  symbol: string;
+  interval: string;
+  /** Window start, in seconds. */
+  time: number;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  /** Traded volume (q). */
+  volume: string;
+  /** Traded amount (a). */
+  amount: string;
+}
+
+/** A futures order update (push.personal.order), emitted on `order`. */
+export interface MexcFuturesOrder {
+  orderId: string | number;
+  symbol: string;
+  /** 1 open long, 2 close short, 3 open short, 4 close long. */
+  side: number;
+  /** 1 pending, 2 open, 3 filled, 4 canceled, 5 invalid. */
+  state: number;
+  price: number | string;
+  vol: number | string;
+  dealAvgPrice?: number | string;
+  dealVol?: number | string;
+  remainVol?: number | string;
+  orderType?: number;
+  category?: number;
+  leverage?: number;
+  profit?: number | string;
+  externalOid?: string;
+  createTime?: number;
+  updateTime?: number;
+  [key: string]: unknown;
 }
 
 /** Private account/balance update body (spot@private.account.v3.api.pb). */
