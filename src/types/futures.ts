@@ -38,8 +38,8 @@ export interface FuturesApiResponse<T> {
 /** Direction: 1 open long, 2 close short, 3 open short, 4 close long. */
 export type FuturesOrderSide = 1 | 2 | 3 | 4;
 
-/** 1 limit, 2 post-only, 3 IOC, 4 FOK, 5 market, 6 market→current price. */
-export type FuturesOrderType = 1 | 2 | 3 | 4 | 5 | 6;
+/** 1 limit, 2 post-only, 3 IOC, 4 FOK, 5 market. */
+export type FuturesOrderType = 1 | 2 | 3 | 4 | 5;
 
 /** Margin mode: 1 isolated, 2 cross. */
 export type FuturesOpenType = 1 | 2;
@@ -64,16 +64,30 @@ export interface NewFuturesOrderRequest {
   [key: string]: unknown;
 }
 
-/** Modify the SL/TP attached to an existing order. */
-export interface ChangeOrderPriceRequest {
+/** Amend a live limit order's price and quantity (order/change_limit_order). */
+export interface ModifyOrderRequest {
+  orderId: number | string;
+  price: number;
+  vol: number;
+}
+
+/** Modify the SL/TP attached to a limit order (stoporder/change_price). */
+export interface ModifyOrderTpSlRequest {
   orderId: number | string;
   stopLossPrice?: number;
   takeProfitPrice?: number;
+  /** SL reference price: 1 latest, 2 fair, 3 index. */
+  lossTrend?: number;
+  /** TP reference price: 1 latest, 2 fair, 3 index. */
+  profitTrend?: number;
 }
 
-/** Modify the trigger price of a plan (stop-limit) order. */
-export interface ChangeTriggerPriceRequest {
-  stopPlanOrderId: number | string;
+/** Modify the SL/TP on a plan (trigger) order (planorder/change_stop_order). */
+export interface ModifyPlanOrderTpSlRequest {
+  symbol: string;
+  orderId: number | string;
   stopLossPrice?: number;
   takeProfitPrice?: number;
+  lossTrend?: number;
+  profitTrend?: number;
 }

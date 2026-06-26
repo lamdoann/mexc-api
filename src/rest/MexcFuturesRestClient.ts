@@ -3,8 +3,9 @@ import { Method } from 'axios';
 import { BaseRestClient, RequestParams } from './BaseRestClient';
 import type { RestClientOptions } from '../types/request';
 import type {
-  ChangeOrderPriceRequest,
-  ChangeTriggerPriceRequest,
+  ModifyOrderRequest,
+  ModifyOrderTpSlRequest,
+  ModifyPlanOrderTpSlRequest,
   FuturesApiResponse,
   FuturesContract,
   NewFuturesOrderRequest,
@@ -18,9 +19,11 @@ export const DEFAULT_FUTURES_REST_BASE_URL = 'https://contract.mexc.com';
  * signing scheme: `ApiKey` / `Request-Time` / `Signature` headers, signing
  * `accessKey + reqTime + paramStr` (sorted query for GET, JSON body for POST).
  *
- * ⚠️ MEXC has temporarily closed the **place/cancel order** endpoints for normal
- * API accounts since 2022-07 (only whitelisted market makers may use them). The
- * order methods here follow the spec but may return a maintenance error.
+ * Futures trading endpoints are open via the API. Your account still needs
+ * contract/futures API permission enabled. Note the contract host is fronted by
+ * Akamai, which blocks the private order paths when the User-Agent is `axios/*`;
+ * the shared {@link BaseRestClient} sets a non-axios User-Agent so requests get
+ * through (see DEFAULT_USER_AGENT).
  *
  * @example
  * const fut = new MexcFuturesRestClient({ apiKey, apiSecret });
@@ -55,9 +58,9 @@ export class MexcFuturesRestClient extends BaseRestClient {
 
   // --- Trading (signed) — see the maintenance note in the class docs ---
 
-  /** Place an order. POST /api/v1/private/order/submit. */
+  /** Place an order. POST /api/v1/private/order/create. */
   placeOrder<T = unknown>(params: NewFuturesOrderRequest): Promise<T> {
-    return this.signedPost<T>('/api/v1/private/order/submit', params);
+    return this.signedPost<T>('/api/v1/private/order/create', params);
   }
 
   /** Place up to 50 orders at once. POST /api/v1/private/order/submit_batch. */
@@ -81,22 +84,27 @@ export class MexcFuturesRestClient extends BaseRestClient {
   }
 
   /**
-   * Modify the SL/TP attached to an existing order.
-   * POST /api/v1/private/stoporder/change_price.
-   *
-   * Note: MEXC futures has no plain "amend limit price" — to change a limit
-   * order's price, cancel and re-place it.
+   * Amend a live limit order's price and quantity.
+   * POST /api/v1/private/order/change_limit_order.
    */
-  changeOrderPrice<T = unknown>(params: ChangeOrderPriceRequest): Promise<T> {
+  modifyOrder<T = unknown>(params: ModifyOrderRequest): Promise<T> {
+    return this.signedPost<T>('/api/v1/private/order/change_limit_order', params);
+  }
+
+  /**
+   * Modify the SL/TP attached to a limit order.
+   * POST /api/v1/private/stoporder/change_price.
+   */
+  modifyOrderTpSl<T = unknown>(params: ModifyOrderTpSlRequest): Promise<T> {
     return this.signedPost<T>('/api/v1/private/stoporder/change_price', params);
   }
 
   /**
-   * Modify the trigger price of a plan (stop-limit) order.
-   * POST /api/v1/private/stoporder/change_plan_price.
+   * Modify the SL/TP on a plan (trigger) order.
+   * POST /api/v1/private/planorder/change_stop_order.
    */
-  changeTriggerPrice<T = unknown>(params: ChangeTriggerPriceRequest): Promise<T> {
-    return this.signedPost<T>('/api/v1/private/stoporder/change_plan_price', params);
+  modifyPlanOrderTpSl<T = unknown>(params: ModifyPlanOrderTpSlRequest): Promise<T> {
+    return this.signedPost<T>('/api/v1/private/planorder/change_stop_order', params);
   }
 
   // --- Generic escape hatches (override spot signing with futures signing) ---

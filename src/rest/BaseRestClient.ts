@@ -4,6 +4,13 @@ import type { RestClientOptions } from '../types/request';
 
 export const DEFAULT_REST_BASE_URL = 'https://api.mexc.com';
 
+/**
+ * Default User-Agent. The contract host (contract.mexc.com) is behind Akamai,
+ * which blocks the private order endpoints when the UA is `axios/*` (the axios
+ * default). Any non-axios UA passes, so we set an explicit SDK identifier.
+ */
+export const DEFAULT_USER_AGENT = 'mexc-api/0.1.0';
+
 export type RequestParams = Record<string, string | number | boolean | undefined>;
 
 /**
@@ -29,7 +36,7 @@ export class BaseRestClient {
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
       timeout: options.timeout ?? 10000,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'User-Agent': DEFAULT_USER_AGENT },
     });
   }
 

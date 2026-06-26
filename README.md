@@ -60,15 +60,17 @@ paramStr`).
 ```ts
 const fut = new MexcFuturesRestClient({ apiKey, apiSecret });
 
-// Place: side 1 open long / 2 close short / 3 open short / 4 close long;
-// type 1 limit … 5 market; openType 1 isolated / 2 cross.
+// Place (POST order/create): side 1 open long / 2 close short / 3 open short /
+// 4 close long; type 1 limit … 5 market; openType 1 isolated / 2 cross.
 await fut.placeOrder({ symbol: 'BTC_USDT', price: 60000, vol: 1, side: 1, type: 1, openType: 1, leverage: 20 });
 await fut.placeBatchOrders([ /* up to 50 */ ]);
 
-// Modify (SL/TP of an order, or a trigger order's price — MEXC has no plain
-// limit-price amend; cancel & re-place to change a limit price):
-await fut.changeOrderPrice({ orderId: 123, stopLossPrice: 58000, takeProfitPrice: 65000 });
-await fut.changeTriggerPrice({ stopPlanOrderId: 456, stopLossPrice: 58000 });
+// Modify a live limit order's price & quantity (order/change_limit_order):
+await fut.modifyOrder({ orderId: 123, price: 61000, vol: 2 });
+// Modify SL/TP on a limit order (stoporder/change_price):
+await fut.modifyOrderTpSl({ orderId: 123, stopLossPrice: 58000, takeProfitPrice: 65000 });
+// Modify SL/TP on a plan/trigger order (planorder/change_stop_order):
+await fut.modifyPlanOrderTpSl({ symbol: 'BTC_USDT', orderId: 456, stopLossPrice: 58000 });
 
 // Cancel:
 await fut.cancelOrders([123, 456]);          // by id (max 50)
@@ -79,11 +81,11 @@ await fut.cancelAllOrders('BTC_USDT');        // or omit symbol for all
 await fut.privateGet('/api/v1/private/order/list/open_orders/BTC_USDT');
 ```
 
-> ⚠️ **MEXC has temporarily closed the futures place/cancel order endpoints for
-> normal API accounts since 2022-07** — only whitelisted market makers can use
-> them; others get a maintenance error. Query endpoints still work. These methods
-> follow the official spec, but live order placement depends on your account's
-> access.
+> **Futures trading access:** these endpoints are open via the API — your account
+> just needs **contract/futures API permission** enabled. The contract host sits
+> behind Akamai, which returns `403 Access Denied` for the order paths when the
+> `User-Agent` is `axios/*`; the client sends a non-axios User-Agent
+> (`DEFAULT_USER_AGENT`) so requests get through.
 
 ## REST — private (signed) endpoints
 

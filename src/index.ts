@@ -1,5 +1,5 @@
 export { MexcRestClient } from './rest/MexcRestClient';
-export { BaseRestClient, DEFAULT_REST_BASE_URL } from './rest/BaseRestClient';
+export { BaseRestClient, DEFAULT_REST_BASE_URL, DEFAULT_USER_AGENT } from './rest/BaseRestClient';
 export type { RequestParams } from './rest/BaseRestClient';
 export {
   MexcFuturesRestClient,
@@ -47,8 +47,9 @@ export type {
   FuturesOrderType,
   FuturesOpenType,
   NewFuturesOrderRequest,
-  ChangeOrderPriceRequest,
-  ChangeTriggerPriceRequest,
+  ModifyOrderRequest,
+  ModifyOrderTpSlRequest,
+  ModifyPlanOrderTpSlRequest,
 } from './types/futures';
 export type {
   OrderSide,
