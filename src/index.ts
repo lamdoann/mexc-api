@@ -38,7 +38,13 @@ export type {
   SymbolFilter,
   RateLimit,
 } from './types/spot';
-export type { AccountInformation, AccountBalance } from './types/account';
+export type {
+  AccountInformation,
+  AccountBalance,
+  TransferAccountType,
+  UniversalTransferRequest,
+  UniversalTransferResult,
+} from './types/account';
 export type {
   FuturesContract,
   FuturesApiResponse,

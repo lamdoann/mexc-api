@@ -140,11 +140,19 @@ const order = await client.placeOrder({                         // POST /api/v3/
 });
 
 await client.cancelOrder({ symbol: 'BTCUSDT', orderId: order.orderId });
+
+// Move funds between accounts (SPOT ↔ FUTURES) — POST /api/v3/capital/transfer
+const { tranId } = await client.universalTransfer({
+  fromAccountType: 'SPOT',
+  toAccountType: 'FUTURES',
+  asset: 'USDT',
+  amount: '10',
+});
 ```
 
-Available signed methods: `getAccountInformation`, `placeOrder`, `cancelOrder`,
-`cancelAllOrders`, `queryOrder`, `getOpenOrders`, plus the listenKey lifecycle
-(`createListenKey`, `keepAliveListenKey`, `closeListenKey`).
+Available signed methods: `getAccountInformation`, `universalTransfer`, `placeOrder`,
+`cancelOrder`, `cancelAllOrders`, `queryOrder`, `getOpenOrders`, plus the listenKey
+lifecycle (`createListenKey`, `keepAliveListenKey`, `closeListenKey`).
 
 ### Calling any endpoint (generic helpers)
 

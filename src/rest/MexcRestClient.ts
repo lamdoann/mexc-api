@@ -1,7 +1,11 @@
 import { BaseRestClient, RequestParams } from './BaseRestClient';
 import type { ExchangeInfoRequest } from '../types/request';
 import type { ExchangeInfo } from '../types/spot';
-import type { AccountInformation } from '../types/account';
+import type {
+  AccountInformation,
+  UniversalTransferRequest,
+  UniversalTransferResult,
+} from '../types/account';
 import type {
   CancelOrderRequest,
   ListenKeyResponse,
@@ -50,6 +54,18 @@ export class MexcRestClient extends BaseRestClient {
    */
   getAccountInformation(): Promise<AccountInformation> {
     return this.requestSigned<AccountInformation>('GET', '/api/v3/account');
+  }
+
+  /**
+   * Transfer assets between your accounts (e.g. SPOT ↔ FUTURES).
+   * POST /api/v3/capital/transfer (signed). Returns the transfer id.
+   */
+  universalTransfer(params: UniversalTransferRequest): Promise<UniversalTransferResult> {
+    return this.requestSigned<UniversalTransferResult>(
+      'POST',
+      '/api/v3/capital/transfer',
+      { ...params } as RequestParams,
+    );
   }
 
   /** Place a new order. POST /api/v3/order (signed). */
