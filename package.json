@@ -1,6 +1,6 @@
 {
   "name": "mexc-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Node.js & TypeScript connector for the MEXC Spot V3 API — REST exchangeInfo + spot trade websocket streams",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
