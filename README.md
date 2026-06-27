@@ -48,10 +48,17 @@ handy for feeding the futures trade pool:
 ```ts
 import { MexcFuturesRestClient } from 'mexc-api';
 
-const futuresRest = new MexcFuturesRestClient();
-const contracts = await futuresRest.fetchContracts();         // all contracts
-const enabled = contracts.filter((c) => c.state === 0 && c.quoteCoin === 'USDT');
-// → enabled.map((c) => c.symbol) gives BTC_USDT, ETH_USDT, ...
+const futuresRest = new MexcFuturesRestClient({ apiKey, apiSecret }); // keys only for private
+
+// Market data (public)
+const contracts = await futuresRest.fetchContracts();             // all contracts
+const ticker = await futuresRest.fetchTicker('BTC_USDT');         // one ticker
+const tickers = await futuresRest.fetchTickers();                 // all tickers
+const kline = await futuresRest.fetchKline('BTC_USDT', { interval: 'Min1', start, end });
+// kline is column-oriented: kline.time[i], kline.open[i], kline.close[i], ...
+
+// Open orders (signed)
+const open = await futuresRest.fetchOpenOrders('BTC_USDT');       // or omit symbol for all
 ```
 
 ### Futures account & positions

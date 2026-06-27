@@ -57,6 +57,10 @@ export type {
   TransferRecordQuery,
   PositionHistoryQuery,
   FundingRecordsQuery,
+  FuturesTicker,
+  FuturesKlineData,
+  FuturesKlineRequest,
+  FuturesOpenOrder,
 } from './types/futures';
 export type {
   OrderSide,

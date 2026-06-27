@@ -9,7 +9,11 @@ import type {
   FuturesAccountAsset,
   FuturesApiResponse,
   FuturesContract,
+  FuturesKlineData,
+  FuturesKlineRequest,
+  FuturesOpenOrder,
   FuturesPosition,
+  FuturesTicker,
   ModifyOrderRequest,
   ModifyOrderTpSlRequest,
   ModifyPlanOrderTpSlRequest,
@@ -63,7 +67,56 @@ export class MexcFuturesRestClient extends BaseRestClient {
     return res.data;
   }
 
+  // --- Market data (public) ---
+
+  /** Ticker for a single contract. GET /api/v1/contract/ticker?symbol=. */
+  async fetchTicker(symbol: string): Promise<FuturesTicker> {
+    return this.unwrap(
+      await this.publicGet<FuturesApiResponse<FuturesTicker>>('/api/v1/contract/ticker', {
+        symbol: symbol.toUpperCase(),
+      }),
+    );
+  }
+
+  /** Tickers for all contracts. GET /api/v1/contract/ticker. */
+  async fetchTickers(): Promise<FuturesTicker[]> {
+    return this.unwrap(
+      await this.publicGet<FuturesApiResponse<FuturesTicker[]>>('/api/v1/contract/ticker'),
+    );
+  }
+
+  /**
+   * Candlestick data (column-oriented arrays). GET /api/v1/contract/kline/{symbol}.
+   * `start`/`end` are second timestamps.
+   */
+  async fetchKline(symbol: string, params: FuturesKlineRequest): Promise<FuturesKlineData> {
+    const query: RequestParams = { interval: params.interval };
+    if (params.start !== undefined) {
+      query.start = params.start;
+    }
+    if (params.end !== undefined) {
+      query.end = params.end;
+    }
+    return this.unwrap(
+      await this.publicGet<FuturesApiResponse<FuturesKlineData>>(
+        `/api/v1/contract/kline/${symbol.toUpperCase()}`,
+        query,
+      ),
+    );
+  }
+
   // --- Account & positions (signed) ---
+
+  /** Open orders, optionally for one symbol. GET /api/v1/private/order/list/open_orders[/{symbol}]. */
+  fetchOpenOrders(
+    symbol?: string,
+    params: { page_num?: number; page_size?: number } = {},
+  ): Promise<FuturesOpenOrder[]> {
+    const path = symbol
+      ? `/api/v1/private/order/list/open_orders/${symbol.toUpperCase()}`
+      : '/api/v1/private/order/list/open_orders';
+    return this.signedGet<FuturesOpenOrder[]>(path, { ...params } as RequestParams);
+  }
 
   /** All wallet assets. GET /api/v1/private/account/assets. */
   getAccountAssets(): Promise<FuturesAccountAsset[]> {

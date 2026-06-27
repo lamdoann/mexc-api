@@ -27,6 +27,73 @@ export interface FuturesContract {
   [key: string]: unknown;
 }
 
+import type { KlineInterval } from './websocket';
+
+/** A futures ticker (GET /api/v1/contract/ticker). */
+export interface FuturesTicker {
+  contractId: number;
+  symbol: string;
+  lastPrice: number;
+  bid1: number;
+  ask1: number;
+  volume24: number;
+  amount24: number;
+  holdVol: number;
+  lower24Price: number;
+  high24Price: number;
+  riseFallRate: number;
+  riseFallValue: number;
+  indexPrice: number;
+  fairPrice: number;
+  fundingRate: number;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+/** Column-oriented kline data (GET /api/v1/contract/kline/{symbol}). */
+export interface FuturesKlineData {
+  /** Window start times, in seconds. */
+  time: number[];
+  open: number[];
+  close: number[];
+  high: number[];
+  low: number[];
+  vol: number[];
+  amount: number[];
+  realOpen: number[];
+  realClose: number[];
+  realHigh: number[];
+  realLow: number[];
+}
+
+export interface FuturesKlineRequest {
+  interval: KlineInterval;
+  /** Start time, seconds. */
+  start?: number;
+  /** End time, seconds. */
+  end?: number;
+}
+
+/** An open futures order (GET /api/v1/private/order/list/open_orders). */
+export interface FuturesOpenOrder {
+  orderId: number | string;
+  symbol: string;
+  price: number | string;
+  vol: number | string;
+  side: number;
+  state: number;
+  orderType: number;
+  category?: number;
+  leverage?: number;
+  dealAvgPrice?: number | string;
+  dealVol?: number | string;
+  remainVol?: number | string;
+  externalOid?: string;
+  createTime?: number;
+  updateTime?: number;
+  [key: string]: unknown;
+}
+
 /** Raw envelope returned by the MEXC contract API. */
 export interface FuturesApiResponse<T> {
   success: boolean;
